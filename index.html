@@ -3,65 +3,351 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>GreenWave - 자주 가는 GPS 저장 & 신호등 안내</title>
+  <title>GreenWave - 신호등 잔여시간 안내</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Pretendard', sans-serif; }
-    body { background-color: #f0f4f8; color: #102a43; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
-    header { background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); color: #ffffff; padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; }
-    header h1 { font-size: 1.5rem; font-weight: 700; }
-    .status-badge { font-size: 0.85rem; background-color: rgba(255, 255, 255, 0.2); padding: 6px 12px; border-radius: 20px; }
-    main { flex: 1; position: relative; background-color: #1e293b; }
-    
-    .top-controls { position: absolute; top: 20px; right: 20px; display: flex; flex-direction: column; gap: 10px; z-index: 8; align-items: flex-end; }
-    .action-btn { background-color: #2563eb; color: white; border: none; padding: 12px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; }
-    .action-btn.secondary { background-color: #059669; }
-    
-    .places-panel { position: absolute; top: 130px; right: 20px; width: 280px; max-height: 300px; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(12px); border-radius: 12px; padding: 16px; color: #f8fafc; z-index: 8; overflow-y: auto; }
-    .place-item { background: rgba(255, 255, 255, 0.08); border-radius: 8px; padding: 10px; margin-top: 8px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
-    .place-name { font-weight: 600; font-size: 0.9rem; }
-    .place-coords { font-size: 0.75rem; color: #94a3b8; }
-    .delete-btn { background: none; border: none; color: #f87171; cursor: pointer; padding: 4px; }
-    
-    .ai-panel { position: absolute; bottom: 24px; left: 24px; width: 360px; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(12px); border-radius: 16px; padding: 20px; color: #f8fafc; z-index: 9; }
-    .ai-content { font-size: 0.95rem; line-height: 1.5; white-space: pre-line; margin-top: 8px; }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+    }
+
+    body {
+      background-color: #f0f4f8;
+      color: #102a43;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* 상단 헤더 */
+    header {
+      background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+      color: #ffffff;
+      padding: 16px 24px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      z-index: 10;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    header h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    header h1::before {
+      content: '🌊';
+    }
+
+    .status-badge {
+      font-size: 0.85rem;
+      background-color: rgba(255, 255, 255, 0.2);
+      padding: 6px 12px;
+      border-radius: 20px;
+      backdrop-filter: blur(4px);
+    }
+
+    /* 메인 네비게이션 컨테이너 */
+    main {
+      flex: 1;
+      position: relative;
+      background-color: #e2e8f0;
+      overflow: hidden;
+    }
+
+    /* simulated map container */
+    .map-viewport {
+      width: 100%;
+      height: 100%;
+      background: #1e293b;
+      position: relative;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    /* 지도 가상 배경 디자인 */
+    .map-grid {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-image: 
+        linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+      background-size: 40px 40px;
+    }
+
+    .road-line-v {
+      position: absolute;
+      width: 80px;
+      height: 100%;
+      background-color: #334155;
+      left: 50%;
+      transform: translateX(-50%);
+      border-left: 2px dashed #64748b;
+      border-right: 2px dashed #64748b;
+    }
+
+    .road-line-h {
+      position: absolute;
+      height: 80px;
+      width: 100%;
+      background-color: #334155;
+      top: 50%;
+      transform: translateY(-50%);
+      border-top: 2px dashed #64748b;
+      border-bottom: 2px dashed #64748b;
+    }
+
+    /* GPS 아이콘 표시 */
+    .user-location-marker {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 24px;
+      height: 24px;
+      background-color: #3b82f6;
+      border: 3px solid #ffffff;
+      border-radius: 50%;
+      box-shadow: 0 0 15px #3b82f6;
+      z-index: 5;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); }
+      70% { box-shadow: 0 0 0 15px rgba(59, 130, 246, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+    }
+
+    /* 상단 우측 컨트롤 영역 */
+    .top-controls {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      z-index: 8;
+      align-items: flex-end;
+    }
+
+    .action-btn {
+      background-color: #2563eb;
+      color: white;
+      border: none;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+      transition: all 0.2s ease;
+    }
+
+    .action-btn:hover {
+      background-color: #1d4ed8;
+      transform: translateY(-2px);
+    }
+
+    .action-btn.secondary {
+      background-color: #059669;
+    }
+
+    .action-btn.secondary:hover {
+      background-color: #047857;
+    }
+
+    .action-btn:disabled {
+      background-color: #94a3b8;
+      cursor: not-allowed;
+    }
+
+    /* 자주 가는 장소 목록 사이드 패널 */
+    .places-panel {
+      position: absolute;
+      top: 130px;
+      right: 20px;
+      width: 280px;
+      max-height: 300px;
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 16px;
+      color: #f8fafc;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+      z-index: 8;
+      overflow-y: auto;
+    }
+
+    .places-panel h3 {
+      font-size: 0.95rem;
+      margin-bottom: 10px;
+      color: #34d399;
+    }
+
+    .place-item {
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      padding: 10px;
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .place-item:hover {
+      background: rgba(255, 255, 255, 0.18);
+    }
+
+    .place-name {
+      font-weight: 600;
+      font-size: 0.9rem;
+      color: #ffffff;
+    }
+
+    .place-coords {
+      font-size: 0.75rem;
+      color: #94a3b8;
+    }
+
+    .delete-btn {
+      background: none;
+      border: none;
+      color: #f87171;
+      cursor: pointer;
+      font-size: 0.85rem;
+      padding: 4px;
+    }
+
+    /* 왼쪽 아래 AI 결과 패널 */
+    .ai-panel {
+      position: absolute;
+      bottom: 24px;
+      left: 24px;
+      width: 360px;
+      max-width: calc(100% - 48px);
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
+      padding: 20px;
+      color: #f8fafc;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+      z-index: 9;
+    }
+
+    .ai-panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      padding-bottom: 8px;
+    }
+
+    .ai-panel-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #60a5fa;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .ai-content {
+      font-size: 0.95rem;
+      line-height: 1.5;
+      color: #e2e8f0;
+      min-height: 60px;
+      white-space: pre-line;
+    }
+
+    .loading-spinner {
+      display: inline-block;
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-radius: 50%;
+      border-top-color: #ffffff;
+      animation: spin 1s ease-in-out infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
   </style>
 </head>
 <body>
 
   <header>
-    <h1>🌊 GreenWave</h1>
+    <h1>GreenWave</h1>
     <div class="status-badge" id="gpsStatus">GPS 준비 완료</div>
   </header>
 
   <main>
-    <div class="top-controls">
-      <button class="action-btn" id="fetchBtn">내 위치 기반 잔여시간 분석</button>
-      <button class="action-btn secondary" id="saveBtn">⭐ 현재 위치 자주 가는 곳에 저장</button>
+    <div class="map-viewport">
+      <div class="map-grid"></div>
+      <div class="road-line-v"></div>
+      <div class="road-line-h"></div>
+      <div class="user-location-marker" id="userMarker"></div>
     </div>
 
+    <!-- 우측 상단 컨트롤 버튼 -->
+    <div class="top-controls">
+      <button class="action-btn" id="fetchBtn">
+        내 위치 기반 잔여시간 분석
+      </button>
+      <button class="action-btn secondary" id="saveBtn">
+        ⭐ 현재 위치 자주 가는 곳에 저장
+      </button>
+    </div>
+
+    <!-- 자주 가는 장소 목록 사이드 패널 -->
     <div class="places-panel">
-      <h3 style="color:#34d399; font-size:0.95rem;">📍 자주 가는 장소 (GPS)</h3>
+      <h3>📍 자주 가는 장소 (Firebase)</h3>
       <div id="placesList">
-        <div style="font-size:0.8rem; color:#94a3b8; margin-top:8px;">목록을 불러오는 중...</div>
+        <div style="font-size:0.8rem; color:#94a3b8;">목록을 불러오는 중...</div>
       </div>
     </div>
 
+    <!-- 네비게이션 왼쪽 아래 AI 결과 박스 -->
     <div class="ai-panel">
-      <strong style="color:#60a5fa;">✨ Gemini AI 분석</strong>
-      <div class="ai-content" id="aiOutput">버튼을 눌러 현재 위치 또는 저장된 위치의 신호등 예측 정보를 확인하세요.</div>
+      <div class="ai-panel-header">
+        <div class="ai-panel-title">
+          <span>✨ Gemini AI 분석</span>
+        </div>
+      </div>
+      <div class="ai-content" id="aiOutput">
+        버튼을 눌러 현재 위치 주변 신호등의 잔여 시간 예측 정보를 확인하세요.
+      </div>
     </div>
   </main>
 
+  <!-- Firebase 모듈 및 앱 로직 -->
   <script type="module">
     import { saveFrequentLocation, subscribeFrequentLocations, deleteFrequentLocation } from './src/firebase.js';
 
     let currentLat = 37.5547;
     let currentLng = 126.9707;
 
+    // 1. Firebase 실시간 목록 구독 및 UI 렌더링
     subscribeFrequentLocations((locations) => {
       const listEl = document.getElementById('placesList');
       if (locations.length === 0) {
-        listEl.innerHTML = '<div style="font-size:0.8rem; color:#94a3b8; margin-top:8px;">저장된 장소가 없습니다.</div>';
+        listEl.innerHTML = '<div style="font-size:0.8rem; color:#94a3b8;">저장된 장소가 없습니다.</div>';
         return;
       }
 
@@ -77,6 +363,7 @@
           <button class="delete-btn" data-id="${loc.id}">✕</button>
         `;
 
+        // 저장 장소 클릭 시 해당 GPS 기반 분석 실행
         item.addEventListener('click', (e) => {
           if (e.target.classList.contains('delete-btn')) return;
           document.getElementById('gpsStatus').innerText = `선택 위치: ${loc.name}`;
@@ -85,6 +372,7 @@
           fetchTrafficData(loc.lat, loc.lng);
         });
 
+        // 삭제 버튼 이벤트
         item.querySelector('.delete-btn').addEventListener('click', async (e) => {
           e.stopPropagation();
           if (confirm(`'${loc.name}' 장소를 삭제하시겠습니까?`)) {
@@ -96,49 +384,76 @@
       });
     });
 
+    // 2. 현재 GPS 위치 Firebase 저장
     document.getElementById('saveBtn').addEventListener('click', async () => {
-      const name = prompt("이 장소의 이름을 입력하세요 (예: 집, 회사, 단골 교차로):", "자주 가는 곳");
+      const name = prompt("이 위치의 이름을 입력하세요 (예: 집, 회사, 자주 가는 교차로):", "자주 가는 교차로");
       if (!name) return;
 
       try {
         await saveFrequentLocation(name, currentLat, currentLng);
         alert(`'${name}' GPS 위치가 성공적으로 저장되었습니다!`);
       } catch (err) {
-        alert("저장 실패: Firebase 설정을 확인해주세요.");
+        alert("저장 실패: src/firebase.js 파일의 firebaseConfig 설정을 확인해 주세요.");
       }
     });
 
+    // 3. 내 GPS 위치 기반 분석
     document.getElementById('fetchBtn').addEventListener('click', () => {
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          (pos) => {
-            currentLat = pos.coords.latitude;
-            currentLng = pos.coords.longitude;
-            document.getElementById('gpsStatus').innerText = `위치 수신 성공 (${currentLat.toFixed(4)}, ${currentLng.toFixed(4)})`;
-            fetchTrafficData(currentLat, currentLng);
-          },
-          () => fetchTrafficData(currentLat, currentLng),
-          { timeout: 10000 }
-        );
-      } else {
+      const btn = document.getElementById('fetchBtn');
+      const output = document.getElementById('aiOutput');
+      const status = document.getElementById('gpsStatus');
+
+      btn.disabled = true;
+      status.innerText = "GPS 데이터 수집 중...";
+      output.innerHTML = '<div style="display:flex; align-items:center; gap:8px;"><span class="loading-spinner"></span> <span>위치 정보를 기반으로 분석하고 있습니다...</span></div>';
+
+      if (!navigator.geolocation) {
         fetchTrafficData(currentLat, currentLng);
+        return;
       }
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          currentLat = position.coords.latitude;
+          currentLng = position.coords.longitude;
+          status.innerText = `위치 수신 성공 (${currentLat.toFixed(4)}, ${currentLng.toFixed(4)})`;
+          fetchTrafficData(currentLat, currentLng);
+        },
+        (error) => {
+          console.warn("GPS 수신 실패, 기본 위치 사용:", error);
+          status.innerText = "GPS 실패 (기본 위치 적용)";
+          fetchTrafficData(currentLat, currentLng);
+        },
+        { timeout: 10000, enableHighAccuracy: true }
+      );
     });
 
+    // 4. Gemini API 호출
     async function fetchTrafficData(lat, lng) {
       const output = document.getElementById('aiOutput');
-      output.innerText = "분석 중입니다...";
+      const btn = document.getElementById('fetchBtn');
 
       try {
-        const res = await fetch('/api/generate', {
+        const response = await fetch('/api/generate', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+          },
           body: JSON.stringify({ lat, lng }),
         });
-        const data = await res.json();
-        output.innerText = res.ok ? data.result : `오류: ${data.error}`;
-      } catch (err) {
-        output.innerText = "서버 통신 오류가 발생했습니다.";
+
+        const data = await response.json();
+
+        if (response.ok) {
+          output.innerText = data.result;
+        } else {
+          output.innerText = `오류 발생: ${data.error || '데이터를 불러올 수 없습니다.'}`;
+        }
+      } catch (error) {
+        console.error("API 호출 오류:", error);
+        output.innerText = "서버 요청 중 오류가 발생했습니다.";
+      } finally {
+        btn.disabled = false;
       }
     }
   </script>

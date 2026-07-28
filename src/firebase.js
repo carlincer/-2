@@ -14,13 +14,12 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyCqNuiO8bZrNQGYNGnTFxb2Y7h3KCyaDKo",
-  authDomain: "gachaundae.firebaseapp.com",
-  projectId: "gachaundae",
-  storageBucket: "gachaundae.firebasestorage.app",
-  messagingSenderId: "51875901280",
-  appId: "1:51875901280:web:bd60f4be11e540c6ffb805",
-  measurementId: "G-CM41CJLP3J"
+  apiKey: "YOUR_FIREBASE_API_KEY",
+  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_PROJECT_ID.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
 };
 
 const app = initializeApp(firebaseConfig);
@@ -46,9 +45,9 @@ export async function saveFrequentLocation(name, lat, lng) {
 export function subscribeFrequentLocations(callback) {
   const q = query(collection(db, COLLECTION_NAME), orderBy("createdAt", "desc"));
   return onSnapshot(q, (snapshot) => {
-    const locations = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
+    const locations = snapshot.docs.map(docData => ({
+      id: docData.id,
+      ...docData.data()
     }));
     callback(locations);
   }, (error) => {
@@ -58,7 +57,7 @@ export function subscribeFrequentLocations(callback) {
 
 export async function deleteFrequentLocation(id) {
   try {
-    await deleteDoc(doc(docRef(db, COLLECTION_NAME, id)));
+    await deleteDoc(doc(db, COLLECTION_NAME, id));
   } catch (error) {
     console.error("Firebase 삭제 중 오류 발생:", error);
     throw error;

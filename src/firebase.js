@@ -20,7 +20,6 @@ const firebaseConfig = {
   storageBucket: "gachaundae.firebasestorage.app",
   messagingSenderId: "51875901280",
   appId: "1:51875901280:web:bd60f4be11e540c6ffb805",
-  measurementId: "G-CM41CJLP3J"
 };
 
 const app = initializeApp(firebaseConfig);

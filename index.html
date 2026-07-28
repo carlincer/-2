@@ -3,7 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>GreenWave - 신호등 잔여시간 안내</title>
+  <title>GreenWave - 신호등 잔여시간 & 자주 가는 장소</title>
+  
+  <!-- Firebase SDK (Compat Version for Easy CDN Usage) -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
   <style>
     * {
       box-sizing: border-box;
@@ -13,8 +18,8 @@
     }
 
     body {
-      background-color: #69876f;
-      color: #69876f;
+      background-color: #f0f4f8;
+      color: #102a43;
       display: flex;
       flex-direction: column;
       height: 100vh;
@@ -23,7 +28,7 @@
 
     /* 상단 헤더 */
     header {
-      background: linear-gradient(135deg, #526956 0%, #69876f 100%);
+      background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
       color: #ffffff;
       padding: 16px 24px;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
@@ -130,11 +135,19 @@
       100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
     }
 
-    /* 컨트롤 버튼 */
-    .action-btn {
+    /* 상단 우측 컨트롤 영역 */
+    .top-controls {
       position: absolute;
       top: 20px;
       right: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      z-index: 8;
+      align-items: flex-end;
+    }
+
+    .action-btn {
       background-color: #2563eb;
       color: white;
       border: none;
@@ -144,7 +157,6 @@
       cursor: pointer;
       box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
       transition: all 0.2s ease;
-      z-index: 8;
     }
 
     .action-btn:hover {
@@ -152,9 +164,86 @@
       transform: translateY(-2px);
     }
 
+    .action-btn.secondary {
+      background-color: #059669;
+    }
+
+    .action-btn.secondary:hover {
+      background-color: #047857;
+    }
+
     .action-btn:disabled {
       background-color: #94a3b8;
       cursor: not-allowed;
+    }
+
+    /* 오른쪽 자주 가는 위치 사이드 패널 */
+    .places-panel {
+      position: absolute;
+      top: 130px;
+      right: 20px;
+      width: 280px;
+      max-height: 300px;
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 16px;
+      color: #f8fafc;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+      z-index: 8;
+      overflow-y: auto;
+    }
+
+    .places-panel h3 {
+      font-size: 0.95rem;
+      margin-bottom: 10px;
+      color: #34d399;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .place-item {
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      padding: 10px;
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .place-item:hover {
+      background: rgba(255, 255, 255, 0.18);
+    }
+
+    .place-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .place-name {
+      font-weight: 600;
+      font-size: 0.9rem;
+      color: #ffffff;
+    }
+
+    .place-coords {
+      font-size: 0.75rem;
+      color: #94a3b8;
+    }
+
+    .delete-btn {
+      background: none;
+      border: none;
+      color: #f87171;
+      cursor: pointer;
+      font-size: 0.85rem;
+      padding: 4px;
     }
 
     /* 왼쪽 아래 AI 결과 패널 */
@@ -230,15 +319,29 @@
       <div class="user-location-marker" id="userMarker"></div>
     </div>
 
-    <button class="action-btn" id="fetchBtn" onclick="getLocationAndAnalyze()">
-      내 위치 기반 잔여시간 분석
-    </button>
+    <!-- 우측 상단 컨트롤 버튼 -->
+    <div class="top-controls">
+      <button class="action-btn" id="fetchBtn" onclick="getLocationAndAnalyze()">
+        내 위치 기반 잔여시간 분석
+      </button>
+      <button class="action-btn secondary" onclick="saveCurrentLocationToFirebase()">
+        ⭐ 현재 위치 자주 가는 곳에 저장
+      </button>
+    </div>
+
+    <!-- 자주 가는 장소 목록 패널 -->
+    <div class="places-panel">
+      <h3>📍 자주 가는 장소 (Firebase)</h3>
+      <div id="placesList">
+        <div style="font-size:0.8rem; color:#94a3b8;">목록을 불러오는 중...</div>
+      </div>
+    </div>
 
     <!-- 네비게이션 왼쪽 아래 AI 결과 박스 -->
     <div class="ai-panel">
       <div class="ai-panel-header">
         <div class="ai-panel-title">
-          <span>✨ 신호등 잔여시간 안내</span>
+          <span>✨ Gemini AI 분석</span>
         </div>
       </div>
       <div class="ai-content" id="aiOutput">
@@ -248,6 +351,98 @@
   </main>
 
   <script>
+    const firebaseConfig = {
+      apiKey: "YOUR_FIREBASE_API_KEY",
+      authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_PROJECT_ID.appspot.com",
+      messagingSenderId: "YOUR_SENDER_ID",
+      appId: "YOUR_APP_ID"
+    };
+
+    let db = null;
+    let currentLat = 37.5547;
+    let currentLng = 126.9707;
+
+    try {
+      if (firebaseConfig.projectId !== "YOUR_PROJECT_ID") {
+        firebase.initializeApp(firebaseConfig);
+        db = firebase.firestore();
+        loadFavoritePlaces();
+      } else {
+        document.getElementById('placesList').innerHTML = 
+          '<div style="font-size:0.8rem; color:#f87171;">index.html 상단의 Firebase 설정을 입력해주세요.</div>';
+      }
+    } catch (e) {
+      console.error("Firebase 초기화 오류:", e);
+    }
+
+    function loadFavoritePlaces() {
+      if (!db) return;
+
+      db.collection("frequent_locations")
+        .orderBy("createdAt", "desc")
+        .onSnapshot((snapshot) => {
+          const listEl = document.getElementById('placesList');
+          if (snapshot.empty) {
+            listEl.innerHTML = '<div style="font-size:0.8rem; color:#94a3b8;">저장된 장소가 없습니다.</div>';
+            return;
+          }
+
+          listEl.innerHTML = '';
+          snapshot.forEach((doc) => {
+            const data = doc.data();
+            const item = document.createElement('div');
+            item.className = 'place-item';
+            item.innerHTML = `
+              <div class="place-info" onclick="analyzeSavedLocation(${data.lat}, ${data.lng}, '${data.name}')">
+                <span class="place-name">📍 ${data.name}</span>
+                <span class="place-coords">${data.lat.toFixed(4)}, ${data.lng.toFixed(4)}</span>
+              </div>
+              <button class="delete-btn" onclick="event.stopPropagation(); deleteLocation('${doc.id}')">✕</button>
+            `;
+            listEl.appendChild(item);
+          });
+        });
+    }
+
+    async function saveCurrentLocationToFirebase() {
+      if (!db) {
+        alert("Firebase가 설정되지 않았습니다. index.html 코드 내 firebaseConfig를 설정해주세요.");
+        return;
+      }
+
+      const name = prompt("이 위치의 이름을 입력하세요 (예: 집, 회사, 자주 가는 교차로):", "자주 가는 교차로");
+      if (!name) return;
+
+      try {
+        await db.collection("frequent_locations").add({
+          name: name,
+          lat: currentLat,
+          lng: currentLng,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        alert(`'${name}' 위치가 성공적으로 저장되었습니다!`);
+      } catch (error) {
+        console.error("저장 실패:", error);
+        alert("위치 저장 실패: " + error.message);
+      }
+    }
+
+    async function deleteLocation(id) {
+      if (!db) return;
+      if (confirm("이 장소를 목록에서 삭제하시겠습니까?")) {
+        await db.collection("frequent_locations").doc(id).delete();
+      }
+    }
+
+    function analyzeSavedLocation(lat, lng, name) {
+      document.getElementById('gpsStatus').innerText = `선택 위치: ${name}`;
+      currentLat = lat;
+      currentLng = lng;
+      fetchTrafficData(lat, lng);
+    }
+
     async function getLocationAndAnalyze() {
       const btn = document.getElementById('fetchBtn');
       const output = document.getElementById('aiOutput');
@@ -258,22 +453,21 @@
       output.innerHTML = '<div style="display:flex; align-items:center; gap:8px;"><span class="loading-spinner"></span> <span>위치 정보를 기반으로 분석하고 있습니다...</span></div>';
 
       if (!navigator.geolocation) {
-        // 지오로케이션 미지원 시 기본 위치(서울역 좌표) 사용
-        fetchTrafficData(37.5547, 126.9707);
+        fetchTrafficData(currentLat, currentLng);
         return;
       }
 
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          const lat = position.coords.latitude;
-          const lng = position.coords.longitude;
-          status.innerText = `위치 수신 성공 (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
-          fetchTrafficData(lat, lng);
+          currentLat = position.coords.latitude;
+          currentLng = position.coords.longitude;
+          status.innerText = `위치 수신 성공 (${currentLat.toFixed(4)}, ${currentLng.toFixed(4)})`;
+          fetchTrafficData(currentLat, currentLng);
         },
         (error) => {
           console.warn("GPS 수신 실패, 기본 위치 사용:", error);
           status.innerText = "GPS 실패 (기본 위치 적용)";
-          fetchTrafficData(37.5547, 126.9707);
+          fetchTrafficData(currentLat, currentLng);
         },
         { timeout: 10000, enableHighAccuracy: true }
       );

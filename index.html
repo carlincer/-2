@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GreenWave - 신호등 잔여시간 안내</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+    }
+
+    body {
+      background-color: #f0f4f8;
+      color: #102a43;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* 상단 헤더 */
+    header {
+      background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+      color: #ffffff;
+      padding: 16px 24px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      z-index: 10;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    header h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    header h1::before {
+      content: '🌊';
+    }
+
+    .status-badge {
+      font-size: 0.85rem;
+      background-color: rgba(255, 255, 255, 0.2);
+      padding: 6px 12px;
+      border-radius: 20px;
+      backdrop-filter: blur(4px);
+    }
+
+    /* 메인 네비게이션 컨테이너 */
+    main {
+      flex: 1;
+      position: relative;
+      background-color: #e2e8f0;
+      overflow: hidden;
+    }
+
+    /* simulated map container */
+    .map-viewport {
+      width: 100%;
+      height: 100%;
+      background: #1e293b;
+      position: relative;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    /* 지도 가상 배경 디자인 */
+    .map-grid {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-image: 
+        linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+      background-size: 40px 40px;
+    }
+
+    .road-line-v {
+      position: absolute;
+      width: 80px;
+      height: 100%;
+      background-color: #334155;
+      left: 50%;
+      transform: translateX(-50%);
+      border-left: 2px dashed #64748b;
+      border-right: 2px dashed #64748b;
+    }
+
+    .road-line-h {
+      position: absolute;
+      height: 80px;
+      width: 100%;
+      background-color: #334155;
+      top: 50%;
+      transform: translateY(-50%);
+      border-top: 2px dashed #64748b;
+      border-bottom: 2px dashed #64748b;
+    }
+
+    /* GPS 아이콘 표시 */
+    .user-location-marker {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 24px;
+      height: 24px;
+      background-color: #3b82f6;
+      border: 3px solid #ffffff;
+      border-radius: 50%;
+      box-shadow: 0 0 15px #3b82f6;
+      z-index: 5;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); }
+      70% { box-shadow: 0 0 0 15px rgba(59, 130, 246, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+    }
+
+    /* 컨트롤 버튼 */
+    .action-btn {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      background-color: #2563eb;
+      color: white;
+      border: none;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+      transition: all 0.2s ease;
+      z-index: 8;
+    }
+
+    .action-btn:hover {
+      background-color: #1d4ed8;
+      transform: translateY(-2px);
+    }
+
+    .action-btn:disabled {
+      background-color: #94a3b8;
+      cursor: not-allowed;
+    }
+
+    /* 왼쪽 아래 AI 결과 패널 */
+    .ai-panel {
+      position: absolute;
+      bottom: 24px;
+      left: 24px;
+      width: 360px;
+      max-width: calc(100% - 48px);
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
+      padding: 20px;
+      color: #f8fafc;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+      z-index: 9;
+    }
+
+    .ai-panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      padding-bottom: 8px;
+    }
+
+    .ai-panel-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #60a5fa;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .ai-content {
+      font-size: 0.95rem;
+      line-height: 1.5;
+      color: #e2e8f0;
+      min-height: 60px;
+      white-space: pre-line;
+    }
+
+    .loading-spinner {
+      display: inline-block;
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-radius: 50%;
+      border-top-color: #ffffff;
+      animation: spin 1s ease-in-out infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>GreenWave</h1>
+    <div class="status-badge" id="gpsStatus">GPS 준비 완료</div>
+  </header>
+
+  <main>
+    <div class="map-viewport">
+      <div class="map-grid"></div>
+      <div class="road-line-v"></div>
+      <div class="road-line-h"></div>
+      <div class="user-location-marker" id="userMarker"></div>
+    </div>
+
+    <button class="action-btn" id="fetchBtn" onclick="getLocationAndAnalyze()">
+      내 위치 기반 잔여시간 분석
+    </button>
+
+    <!-- 네비게이션 왼쪽 아래 AI 결과 박스 -->
+    <div class="ai-panel">
+      <div class="ai-panel-header">
+        <div class="ai-panel-title">
+          <span>✨ Gemini AI 분석</span>
+        </div>
+      </div>
+      <div class="ai-content" id="aiOutput">
+        버튼을 눌러 현재 위치 주변 신호등의 잔여 시간 예측 정보를 확인하세요.
+      </div>
+    </div>
+  </main>
+
+  <script>
+    async function getLocationAndAnalyze() {
+      const btn = document.getElementById('fetchBtn');
+      const output = document.getElementById('aiOutput');
+      const status = document.getElementById('gpsStatus');
+
+      btn.disabled = true;
+      status.innerText = "GPS 데이터 수집 중...";
+      output.innerHTML = '<div style="display:flex; align-items:center; gap:8px;"><span class="loading-spinner"></span> <span>위치 정보를 기반으로 분석하고 있습니다...</span></div>';
+
+      if (!navigator.geolocation) {
+        // 지오로케이션 미지원 시 기본 위치(서울역 좌표) 사용
+        fetchTrafficData(37.5547, 126.9707);
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const lat = position.coords.latitude;
+          const lng = position.coords.longitude;
+          status.innerText = `위치 수신 성공 (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
+          fetchTrafficData(lat, lng);
+        },
+        (error) => {
+          console.warn("GPS 수신 실패, 기본 위치 사용:", error);
+          status.innerText = "GPS 실패 (기본 위치 적용)";
+          fetchTrafficData(37.5547, 126.9707);
+        },
+        { timeout: 10000, enableHighAccuracy: true }
+      );
+    }
+
+    async function fetchTrafficData(lat, lng) {
+      const output = document.getElementById('aiOutput');
+      const btn = document.getElementById('fetchBtn');
+
+      try {
+        const response = await fetch('/api/generate', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ lat, lng }),
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          output.innerText = data.result;
+        } else {
+          output.innerText = `오류 발생: ${data.error || '데이터를 불러올 수 없습니다.'}`;
+        }
+      } catch (error) {
+        console.error("API 호출 오류:", error);
+        output.innerText = "서버 요청 중 오류가 발생했습니다.";
+      } finally {
+        btn.disabled = false;
+      }
+    }
+  </script>
+</body>
+</html>

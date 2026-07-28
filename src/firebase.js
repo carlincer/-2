@@ -19,7 +19,7 @@ const firebaseConfig = {
   projectId: "gachaundae",
   storageBucket: "gachaundae.firebasestorage.app",
   messagingSenderId: "51875901280",
-  appId: "1:51875901280:web:bd60f4be11e540c6ffb805"
+  appId: "1:51875901280:web:bd60f4be11e540c6ffb805";
 };
 
 const app = initializeApp(firebaseConfig);

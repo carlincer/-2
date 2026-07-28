@@ -26,41 +26,74 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
 
-const COLLECTION_NAME = "frequent_locations";
+const STORAGE_KEY = "frequent_locations";
 
+/**
+ * 1. 자주 가는 장소 저장
+ */
 export async function saveFrequentLocation(name, lat, lng) {
   try {
-    const docRef = await addDoc(collection(db, COLLECTION_NAME), {
+    const locations = getStoredLocations();
+    const newLocation = {
+      id: Date.now().toString(),
       name: name,
       lat: lat,
       lng: lng,
-      createdAt: serverTimestamp()
-    });
-    return docRef.id;
+      createdAt: new Date().toISOString()
+    };
+    locations.unshift(newLocation);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(locations));
+    
+    // 변경 이벤트 전파
+    window.dispatchEvent(new Event("storage-updated"));
+    return newLocation.id;
   } catch (error) {
-    console.error("Firebase 저장 중 오류 발생:", error);
+    console.error("저장 중 오류 발생:", error);
     throw error;
   }
 }
 
+/**
+ * 2. 자주 가는 장소 목록 조회 및 실시간 감시
+ */
 export function subscribeFrequentLocations(callback) {
-  const q = query(collection(db, COLLECTION_NAME), orderBy("createdAt", "desc"));
-  return onSnapshot(q, (snapshot) => {
-    const locations = snapshot.docs.map(docData => ({
-      id: docData.id,
-      ...docData.data()
-    }));
+  const updateList = () => {
+    const locations = getStoredLocations();
     callback(locations);
-  }, (error) => {
-    console.error("Firebase 실시간 조회 오류:", error);
-  });
+  };
+
+  // 최초 1회 실행
+  updateList();
+
+  // 저장소 업데이트 이벤트 감지
+  window.addEventListener("storage-updated", updateList);
+  window.addEventListener("storage", updateList);
+
+  // 구독 해제 함수 반환
+  return () => {
+    window.removeEventListener("storage-updated", updateList);
+    window.removeEventListener("storage", updateList);
+  };
 }
 
+/**
+ * 3. 저장된 장소 삭제
+ */
 export async function deleteFrequentLocation(id) {
   try {
-    await deleteDoc(doc(db, COLLECTION_NAME, id));
+    let locations = getStoredLocations();
+    locations = locations.filter(loc => loc.id !== id);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(locations));
+    
+    window.dispatchEvent(new Event("storage-updated"));
   } catch (error) {
-    console.error("Firebase 삭제 중 오류 발생:", error);
+    console.error("삭제 중 오류 발생:", error);
     throw error;
   }
+}
+
+// 헬퍼 함수
+function getStoredLocations() {
+  const data = localStorage.getItem(STORAGE_KEY);
+  return data ? JSON.parse(data) : [];
 }
